@@ -1,7 +1,7 @@
 import pytest
 from assertpy import assert_that
 import os
-from src.data_management import DataManagement
+from src.data_management import DataManagement, dm
 from marshmallow import Schema, fields
 import uuid
 
@@ -20,6 +20,7 @@ os.environ['MONGO_CONNECTION_STRING'] = f"mongodb://{MONGO_ROOT_USERNAME}:{MONGO
 print(os.getenv("MONGO_DATABASE_NAME"))
 print(os.getenv("MONGO_CONNECTION_STRING"))
 
+# print(dir(dm))
 
 
 class DummySchema(Schema):
@@ -27,21 +28,41 @@ class DummySchema(Schema):
     test_field = fields.Str(required=True)
 
 
-dummy_json_data = { 
-    "_id": str(uuid.uuid4()), 
-    "test_field": "does it work?" 
-}
-
-
 def test_insert_one_envset_with_chain_assignment():
 
-    dm = DataManagement()
+    print("Current: ", dm.db_name)
 
     response, status_code = (
-        dm.db("chaindb")
+        dm.db("chaindb") #switch_db_default=False
         .schema(DummySchema)
         .collection("chain_collection")
-        .insert_one(dummy_json_data)
+        .insert_one({ 
+            "_id": str(uuid.uuid4()), 
+            "test_field": "dm db=chaindb collection=chain_collection" 
+        })
+    )
+
+    #dm.switch_to_default_db()
+    
+    print("New: ", dm.db_name)
+    print(response)
+
+    assert_that(status_code).is_in(202)
+    assert_that(response).contains_entry({'status': 'success'})
+
+
+
+def test_insert_one_envset_with_chain_assignment_defaultdb():
+
+    print("Should be `db`: ", dm.db_name)
+
+    response, status_code = (
+        dm.schema(DummySchema)
+        .collection("chain_collection")
+        .insert_one({ 
+            "_id": str(uuid.uuid4()), 
+            "test_field": "dm db=default(db) collection=chain_collection" 
+        })
 
     )
     
@@ -52,15 +73,17 @@ def test_insert_one_envset_with_chain_assignment():
 
 
 
-def test_insert_one_envset_with_chain_assignment_dbdefault():
+def test_insert_one_envset_with_chain_assignment_swichdb():
 
-    dm = DataManagement()
+    print("Should be `db`: ", dm.db_name)
 
     response, status_code = (
-        dm
-        .schema(DummySchema)
+        dm.schema(DummySchema)
         .collection("chain_collection")
-        .insert_one(dummy_json_data)
+        .insert_one({ 
+            "_id": str(uuid.uuid4()), 
+            "test_field": "dm db=db collection=chain_collection" 
+        })
 
     )
     
@@ -68,9 +91,6 @@ def test_insert_one_envset_with_chain_assignment_dbdefault():
 
     assert_that(status_code).is_in(202)
     assert_that(response).contains_entry({'status': 'success'})
-
-
-
 
 
 
@@ -78,7 +98,12 @@ def test_insert_one_envset_with_schema_collection():
 
     dm = DataManagement(schema=DummySchema, collection_name="mycollection")
 
-    response, status_code = dm.insert_one(dummy_json_data)
+    data = { 
+        "_id": str(uuid.uuid4()), 
+        "test_field": "added in mycollection with local instance of dm" 
+    }
+
+    response, status_code = dm.insert_one(data)
 
     print(response)
 
@@ -91,7 +116,10 @@ def test_insert_one_envset_with_schema_collection_db():
 
     dm = DataManagement(schema=DummySchema, collection_name="mycollection", db_name="newdb")
 
-    response, status_code = dm.insert_one(dummy_json_data)
+    response, status_code = dm.insert_one({ 
+                                    "_id": str(uuid.uuid4()), 
+                                    "test_field": "added in mycollection with local instance of db newdb" 
+                                })
 
     print(response)
 
