@@ -58,6 +58,7 @@ class DataManagement:
         if self.db_name != self.default_db:
             self.db(self.default_db)
 
+    
     def get_by_id(self, _id):
         try:
             collection = self._collection_db(self.collection_name)
@@ -68,6 +69,8 @@ class DataManagement:
             return result_data, 200
         except errors.ConnectionFailure as e:
             return {"status": "fail", "message": "errors in connection"}, 500
+        finally:
+            self.switch_to_default_db()
         
 
     def get_one_with_filter(self, _filter):
@@ -80,6 +83,8 @@ class DataManagement:
             return result_data, 200
         except errors.ConnectionFailure as e:
             return {"status": "fail", "message": "errors in connection"}, 500
+        finally:
+            self.switch_to_default_db()
 
 
     def get_all(self, _filter=None):
