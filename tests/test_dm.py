@@ -1,7 +1,7 @@
 import pytest
 from assertpy import assert_that
 import os
-from src.data_management import DataManagement, dm, MongoData
+from src.mongo_data import MongoData
 from marshmallow import Schema, fields
 import uuid
 import datetime as dt
@@ -41,7 +41,7 @@ dummy_data = \
     "_id": id1,
     "name": "John",
     "files": ["f1", "f2"],
-    "age": "20",
+    "age": 20,
     "birthdate": dt.datetime(2021, 9, 29).strftime( '%Y-%m-%d %H:%M:%S' )
 }
 
@@ -61,6 +61,23 @@ def test_md_insert_one():
     )
     
     assert_that(id_list).is_not_none().contains_only(id1) 
+
+
+def test_md_fail_insert_one():
+
+    str_error = MongoData.insert(
+        schema=DummySchema, 
+        collection="testcollection", 
+        data={
+            "_id": id1,
+            # "name": "John Show",
+            "files": ["f1", "f2"],
+            "age": "20",
+            "birthdate": dt.datetime(2021, 9, 29).strftime( '%Y-%m-%d %H:%M:%S' )
+        }
+    )
+    
+    assert_that(str_error).is_instance_of(str)
 
 
 
@@ -123,7 +140,7 @@ def test_md_update_one_with_id():
 def test_md_update_all_with_match():
 
     response = MongoData.update(
-        collection ="testcollection",
+        collection = "testcollection",
         match      = {'name': 'John Show'},
         new_data   = {'name': 'GOT John Show'}
     )
@@ -132,6 +149,43 @@ def test_md_update_all_with_match():
 
 
 
+def test_md_delete_by_id():
+
+    deleted_docs_nbr = MongoData.delete(
+        collection = "testcollection",
+        match      = id1,
+    )
+
+    print(deleted_docs_nbr)
+
+    assert_that(deleted_docs_nbr).is_equal_to(1)
+
+
+
+def test_md_delete_with_query():
+
+    deleted_docs_nbr = MongoData.delete(
+        collection = "testcollection",
+        match      = {'name': 'GOT John Show'},
+    )
+
+    print(deleted_docs_nbr)
+
+    assert_that(deleted_docs_nbr).is_equal_to(1)
+
+
+
+def test_md_fetch_with_agreggate():
+
+    doc_list = MongoData.aggregate(
+        collection = "testcollection",
+        pipeline   = [{ "$match": {'name': 'John'} }],
+        as_list = True
+    )
+
+    print(doc_list)
+
+    assert_that(doc_list).is_instance_of(list).is_not_empty()
 
 
 
