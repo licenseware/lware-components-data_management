@@ -72,18 +72,26 @@ class MongoData:
 
     """
 
-    @staticmethod
-    @failsafe
-    def get_collection(collection, db_name=None, conn_string=None):
+    # def __init__(self, ):
+        
 
+
+    @classmethod
+    @failsafe
+    def get_collection(cls, collection, db_name=None, conn_string=None):
+        
         # raise Exception("Fail")
         
-        connection = MongoClient(
-            conn_string or os.getenv("MONGO_CONNECTION_STRING")
-        )
-    
-        return connection \
-        [db_name or os.getenv("MONGO_DATABASE_NAME")][collection]
+        conn_string = conn_string or os.getenv("MONGO_CONNECTION_STRING")
+        connection  = MongoClient(conn_string)
+
+        collection = connection[db_name or os.getenv("MONGO_DATABASE_NAME")][collection]
+        
+        # make available all methods from MongoData 
+        # in collection instance
+        # setattr(collection, "m", cls(collection, db_name, conn_string)) 
+
+        return collection
 
 
     @staticmethod
@@ -103,7 +111,7 @@ class MongoData:
     
     @classmethod
     @failsafe
-    def insert(cls, collection, *, schema, data, db_name=None, conn_string=None):
+    def insert(cls, collection, schema, data, db_name=None, conn_string=None):
         """
             Insert validated documents in database.
 
@@ -135,7 +143,7 @@ class MongoData:
 
     @classmethod
     @failsafe
-    def fetch(cls, collection, *, match, as_list=False, db_name=None, conn_string=None):
+    def fetch(cls, collection, match, as_list=False, db_name=None, conn_string=None):
         """
             Get data from mongo, based on match dict or string id.
             
@@ -169,7 +177,7 @@ class MongoData:
 
     @classmethod
     @failsafe
-    def update(cls, collection, *, match, new_data, db_name=None, conn_string=None):
+    def update(cls, collection, match, new_data, db_name=None, conn_string=None):
         """
            Update documents based on match query.
             
@@ -201,7 +209,7 @@ class MongoData:
 
     @classmethod
     @failsafe
-    def delete(cls, collection, *, match, db_name=None, conn_string=None):
+    def delete(cls, collection, match, db_name=None, conn_string=None):
         """
 
            Delete documents based on match query.
@@ -231,7 +239,7 @@ class MongoData:
     
     @classmethod
     @failsafe
-    def aggregate(cls, collection, *, pipeline, as_list=False, db_name=None, conn_string=None):
+    def gather(cls, collection, pipeline, as_list=False, db_name=None, conn_string=None):
         """
            Fetch documents based on pipeline queries.
            https://docs.mongodb.com/manual/reference/operator/aggregation-pipeline/

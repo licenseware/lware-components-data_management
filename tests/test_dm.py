@@ -46,6 +46,19 @@ dummy_data = \
 }
 
 
+def test_md_custom():
+
+    collection = MongoData.get_collection("testcollection")
+   
+    print(dir(collection))
+
+    # result = collection.m.fetch("testcollection", {})
+
+    # print(result)
+    
+    print("\n\n\n\n\n")
+
+
 def test_md_insert_one():
     
     id_list = MongoData.insert(
@@ -177,7 +190,7 @@ def test_md_delete_with_query():
 
 def test_md_fetch_with_agreggate():
 
-    doc_list = MongoData.aggregate(
+    doc_list = MongoData.gather(
         collection = "testcollection",
         pipeline   = [{ "$match": {'name': 'John'} }],
         as_list = True
