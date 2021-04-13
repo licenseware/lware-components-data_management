@@ -8,7 +8,7 @@ Wrapper on pymongo with added data validation based on marshmallow.
 Install this package using the following pip command:
 ```bash
 
-$ pip3 install git+https://git@github.com/licenseware/lware-components-data_management.git
+$ pip3 install git+https://git@github.com/licenseware/lware-components-mongodata.git
 
 ```
 
