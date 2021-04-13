@@ -11,14 +11,14 @@ with open("README.md", "r") as fh:
 
 
 setup (
-	name="data_management",
+	name="mongodata",
 	version="0.0.1",
 	description="Abstraction over common db interactions",
 	url="https://github.com/licenseware/lware-components-data_management",
 	author="licenseware",
 	author_email="contact@licenseware.io",
 	license='',
-	py_modules=["data_management"],
+	py_modules=["mongodata"],
 	install_requires=["pymongo", "marshmallow"],
 	packages=find_packages(exclude=("tests",)),
 	long_description=long_description,

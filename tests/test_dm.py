@@ -1,12 +1,12 @@
 import pytest
 from assertpy import assert_that
 import os
-from src.mongo_data import MongoData
+from src.mongodata import MongoData
 from marshmallow import Schema, fields
 import uuid
 import datetime as dt
 
-
+# Add init file in src for tests
 # You need a running mongodb instance running 
 # mongo express is useful for visualizing data
 
