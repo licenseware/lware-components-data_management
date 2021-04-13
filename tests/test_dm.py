@@ -33,6 +33,12 @@ class DummySchema(Schema):
     birthdate = fields.DateTime(default=dt.datetime(2017, 9, 29))
 
 
+
+class AnotherDummySchema(Schema):
+    _id = fields.Str(required=False)
+    name = fields.Str(required=True)
+
+
 # Id to be used by test funcs
 id1 = str(uuid.uuid4())
 
@@ -46,17 +52,27 @@ dummy_data = \
 }
 
 
-def test_md_custom():
 
-    collection = MongoData.get_collection("testcollection")
+def test_md_collection_saved():
    
-    print(dir(collection))
+    MongoData.set_db_name("newdb")
+    MongoData.set_collection_name("new collection")
 
-    # result = collection.m.fetch("testcollection", {})
-
-    # print(result)
+    id_list = MongoData.insert(
+        schema=AnotherDummySchema,
+        data={"name": "Should be in new collection"}
+    )
     
-    print("\n\n\n\n\n")
+    data = MongoData.fetch(id_list[0], as_list=True)    
+    print(id_list, data)
+
+    MongoData.set_db_name("db")
+
+    assert_that(data).contains_entry({"name": "Should be in new collection"})
+
+
+    # print("\n\n\n\n")
+
 
 
 def test_md_insert_one():
@@ -190,7 +206,7 @@ def test_md_delete_with_query():
 
 def test_md_fetch_with_agreggate():
 
-    doc_list = MongoData.gather(
+    doc_list = MongoData.aggregate(
         collection = "testcollection",
         pipeline   = [{ "$match": {'name': 'John'} }],
         as_list = True
