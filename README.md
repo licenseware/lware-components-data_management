@@ -1,4 +1,4 @@
-# Data Management (Beta)
+# Mongo Data (Beta)
 
 Wrapper on pymongo with added data validation based on marshmallow.
 
