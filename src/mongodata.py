@@ -36,10 +36,12 @@ def _uuid_to_dict(data):
             return dict(data, **{"_id": str(uuid.uuid4())})
     return data
 
-def _add_uuid(data):
+def _add_uuid(data, skip_uuid):
     # Appends uuid4 ids for each dict in list
     # [{"field": "data", "field2": {"f": "d"}}, etc] 
     # => [{"_id": uuid4, "field": "data", "field2": {"f": "d"}}, etc] 
+
+    if skip_uuid: return data
 
     if isinstance(data, list):
         data = [_uuid_to_dict(d) for d in data]
@@ -48,7 +50,7 @@ def _add_uuid(data):
 
 
 @failsafe
-def validate_data(schema, data):  
+def validate_data(schema, data, skip_uuid=False):  
 
     if isinstance(data, dict):
         data = schema().load(data)
@@ -56,38 +58,13 @@ def validate_data(schema, data):
     if isinstance(data, list):
         data = schema(many=True).load(data)
 
-    return _add_uuid(data)
+    return _add_uuid(data, skip_uuid)
 
 
 class MongoData:
     """
         Wrapper on pymongo with added data validation based on marshmallow
-
-        Needs for connection in environment variables the follwing keys:
-        - MONGO_CONNECTION_STRING
-        - MONGO_DATABASE_NAME
-
-        Or you need to specify them on each method:
-        - db_name
-        - conn_string
-
-        Import MongoData class:
-        ```py
-
-            from mongo_data import MongoData as m
-
-        ```
-
-        You can get access to pymongo methods directly using:
-
-        ```py
-           
-            collection = MongoData.get_collection('collection_name', 'db_name', 'conn_string')
-
-            collection.distinct(key, filter=None)
-
-        ```
-
+        
     """
 
     @staticmethod
@@ -144,8 +121,7 @@ class MongoData:
             return collection 
 
         data = validate_data(schema, data)
-        if isinstance(data, str):
-            return data
+        if isinstance(data, str): return data
 
         if isinstance(data, dict):
             return [collection.insert_one(data).inserted_id]
@@ -189,13 +165,14 @@ class MongoData:
         
     @staticmethod
     @failsafe
-    def update(match, new_data, collection=None, db_name=None, conn_string=None):
+    def update(schema, match, new_data, collection=None, db_name=None, conn_string=None):
         """
            Update documents based on match query.
             
-            :collection  - collection name
+            :schema      - Marshmallow schema class
             :match       - id as string or dict filter query
             :new_data    - data dict which needs to be updated
+            :collection  - collection name
             :db_name     - specify other db if needed by default is MONGO_DATABASE_NAME from .env
             
             returns number of modified documents
@@ -208,6 +185,11 @@ class MongoData:
         collection = MongoData.get_collection(collection, db_name, conn_string)
         if not isinstance(collection, Collection): return collection 
 
+        new_data = validate_data(schema, new_data, skip_uuid=True)
+        if isinstance(new_data, str): return new_data
+
+        print("update yuhuu", new_data)
+    
         updated_docs_nbr = collection.update_many(
             filter=match,
             update={"$set": new_data},
@@ -215,6 +197,7 @@ class MongoData:
         ).modified_count
         
         return updated_docs_nbr
+
 
     @staticmethod
     @failsafe

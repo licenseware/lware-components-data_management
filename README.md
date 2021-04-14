@@ -172,6 +172,18 @@ modified_doc_nbr = m.update(
     new_data   = {'name': 'GOT John Show'}
 )
 
+#or
+
+import re
+regx = re.compile("^GOT John", re.IGNORECASE)
+
+modified_doc_nbr = MongoData.update(
+    schema= AnotherDummySchema,
+    collection = "testcollection",
+    match      = {'name': regx},
+    new_data   = {'name': 'John'}
+)
+
 ```
 All documents with `match` (filter) found will be updated. 
    

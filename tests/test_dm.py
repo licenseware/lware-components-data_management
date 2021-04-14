@@ -60,15 +60,17 @@ def test_md_collection_saved():
 
     id_list = MongoData.insert(
         schema=AnotherDummySchema,
-        data={"name": "Should be in new collection"}
+        data={"name": "Should be in newdb, new collection"}
     )
     
     data = MongoData.fetch(id_list[0], as_list=True)    
     print(id_list, data)
 
     MongoData.set_db_name("db")
+    MongoData.set_collection_name("testcollection")
 
-    assert_that(data).contains_entry({"name": "Should be in new collection"})
+
+    assert_that(data).contains_entry({"name": "Should be in newdb, new collection"})
 
 
     # print("\n\n\n\n")
@@ -158,6 +160,7 @@ def test_md_fetch_all_with_match():
 def test_md_update_one_with_id():
 
     response = MongoData.update(
+        schema= AnotherDummySchema,
         collection = "testcollection",
         match      = id1,
         new_data   = {'name': 'New John Show'}
@@ -165,16 +168,39 @@ def test_md_update_one_with_id():
     
     print(response)
 
+    assert_that(response).is_equal_to(1)
+
+
 
 def test_md_update_all_with_match():
+    
+    import re
+    regx = re.compile("^New John", re.IGNORECASE)
 
     response = MongoData.update(
+        schema= AnotherDummySchema,
         collection = "testcollection",
-        match      = {'name': 'John Show'},
-        new_data   = {'name': 'GOT John Show'}
+        match      = {'name': regx},
+        new_data   = {'name': 'John'}
     )
 
     print(response)
+
+    assert_that(response).is_greater_than_or_equal_to(1)
+
+
+
+def test_md_fetch_with_agreggate():
+
+    doc_list = MongoData.aggregate(
+        collection = "testcollection",
+        pipeline   = [{ "$match": {'name': 'John'} }],
+        as_list = True        
+    )
+
+    print(doc_list)
+
+    assert_that(doc_list).is_instance_of(list).is_not_empty()
 
 
 
@@ -195,28 +221,12 @@ def test_md_delete_with_query():
 
     deleted_docs_nbr = MongoData.delete(
         collection = "testcollection",
-        match      = {'name': 'GOT John Show'},
+        match      = {'name': 'John'},
     )
 
     print(deleted_docs_nbr)
 
-    assert_that(deleted_docs_nbr).is_equal_to(1)
-
-
-
-def test_md_fetch_with_agreggate():
-
-    doc_list = MongoData.aggregate(
-        collection = "testcollection",
-        pipeline   = [{ "$match": {'name': 'John'} }],
-        as_list = True
-    )
-
-    print(doc_list)
-
-    assert_that(doc_list).is_instance_of(list).is_not_empty()
-
-
+    assert_that(deleted_docs_nbr).is_greater_than_or_equal_to(1)
 
 
 
