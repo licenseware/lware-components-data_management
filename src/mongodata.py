@@ -144,7 +144,7 @@ class MongoData:
             return collection 
 
         data = validate_data(schema, data)
-        if isinstance(data, tuple):
+        if isinstance(data, str):
             return data
 
         if isinstance(data, dict):

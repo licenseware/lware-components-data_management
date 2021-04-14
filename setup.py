@@ -14,7 +14,7 @@ setup (
 	name="mongodata",
 	version="0.0.1",
 	description="Abstraction over common db interactions",
-	url="https://github.com/licenseware/lware-components-data_management",
+	url="https://github.com/licenseware/lware-components-mongodata",
 	author="licenseware",
 	author_email="contact@licenseware.io",
 	license='',
