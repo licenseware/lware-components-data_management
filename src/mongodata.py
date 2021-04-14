@@ -85,7 +85,7 @@ class MongoData:
     def get_collection(collection, db_name, conn_string):
         
         conn_string = conn_string or os.getenv("MONGO_CONNECTION_STRING")
-        db_name     = db_name     or os.getenv("MONGO_DATABASE_NAME")
+        db_name     = db_name     or os.getenv("MONGO_DB_NAME") or os.getenv("MONGO_DATABASE_NAME")
         collection  = collection  or os.getenv("MONGO_COLLECTION_NAME") or "data"
 
         # print(db_name, collection)
@@ -188,8 +188,7 @@ class MongoData:
         new_data = validate_data(schema, new_data, skip_uuid=True)
         if isinstance(new_data, str): return new_data
 
-        print("update yuhuu", new_data)
-    
+
         updated_docs_nbr = collection.update_many(
             filter=match,
             update={"$set": new_data},
