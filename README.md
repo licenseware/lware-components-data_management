@@ -63,12 +63,12 @@ dummy_data = \
 
 
 `MongoData` has the following methods available:
-- `MongoData.insert(schema, data, collection=None, db_name=None, conn_string=None)`
-- `MongoData.fetch(match, collection=None, as_list=False, db_name=None, conn_string=None)`
-- `MongoData.update(match, new_data, collection=None, db_name=None, conn_string=None)`
-- `MongoData.delete(match, collection=None, db_name=None, conn_string=None)`
-- `MongoData.aggregate(pipeline, collection=None, as_list=False, db_name=None, conn_string=None)`
-- `MongoData.get_collection(collection, db_name, conn_string)` (access raw pymongo methods)
+- MongoData.insert(schema, data, collection=None, db_name=None, conn_string=None)
+- MongoData.update(schema, match, new_data, collection=None, db_name=None, conn_string=None)
+- MongoData.fetch(match, collection=None, as_list=False, db_name=None, conn_string=None)
+- MongoData.aggregate(pipeline, collection=None, as_list=False, db_name=None, conn_string=None)
+- MongoData.delete(match, collection=None, db_name=None, conn_string=None)
+- MongoData.get_collection(collection, db_name, conn_string) (access raw pymongo methods)
 
 **If response from MongoData is of type `str` an error ocurred.** 
 
