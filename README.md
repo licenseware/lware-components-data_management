@@ -155,6 +155,7 @@ By default `aggregate` returns a generator, set `as_list = True` and you will re
 ```py
 
 modified_doc_nbr = m.update(
+    schema     = AnotherDummySchema,
     collection = "testcollection",
     match      = id1,
     new_data   = {'name': 'New John Show'}
@@ -167,6 +168,7 @@ modified_doc_nbr = m.update(
 ```py
 
 modified_doc_nbr = m.update(
+    schema     = AnotherDummySchema,
     collection = "testcollection",
     match      = {'name': 'John Show'},
     new_data   = {'name': 'GOT John Show'}
