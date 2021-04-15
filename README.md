@@ -222,30 +222,9 @@ You can access any methods from pymongo by getting the collection:
 collection = m.get_collection('collection_name', 'db_name', 'conn_string')
 
 collection.distinct(key, filter=None)
+collection.create_index(key, filter=None)
+
+#etc
 
 ```
 
-
-Proceed carefully with the lines bellow, 
-the changes are saved in environment variables. 
-You will need to revert to defaults manually. 
-
-
-```py
-
-MongoData.set_db_name("newdb")
-MongoData.set_collection_name("new collection")
-
-response = MongoData.insert(
-    schema=AnotherDummySchema,
-    data={"name": "Should be in new collection"}
-)
-
-# .
-# .
-# .
-# more operations
-
-MongoData.set_db_name("db")
-
-```

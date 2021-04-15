@@ -6,6 +6,7 @@ from marshmallow import Schema, fields
 import uuid
 import datetime as dt
 
+
 # Add init file in src for tests
 # You need a running mongodb instance running 
 # mongo express is useful for visualizing data
@@ -19,10 +20,10 @@ MONGO_PORT=27017
 os.environ['MONGO_DATABASE_NAME'] = MONGO_DATABASE_NAME
 os.environ['MONGO_CONNECTION_STRING'] = f"mongodb://{MONGO_ROOT_USERNAME}:{MONGO_ROOT_PASSWORD}@{MONGO_HOSTNAME}:{MONGO_PORT}"
 
-print(os.getenv("MONGO_DATABASE_NAME"))
-print(os.getenv("MONGO_CONNECTION_STRING"))
+#print(os.getenv("MONGO_DATABASE_NAME"))
+#print(os.getenv("MONGO_CONNECTION_STRING"))
 
-# print(dir(dm))
+# #print(dir(dm))
 
 
 class DummySchema(Schema):
@@ -44,36 +45,12 @@ id1 = str(uuid.uuid4())
 
 dummy_data = \
 {
-    "_id": id1,
+    # "_id": id1,
     "name": "John",
     "files": ["f1", "f2"],
     "age": 20,
     "birthdate": dt.datetime(2021, 9, 29).strftime( '%Y-%m-%d %H:%M:%S' )
 }
-
-
-
-def test_md_collection_saved():
-   
-    MongoData.set_db_name("newdb")
-    MongoData.set_collection_name("new collection")
-
-    id_list = MongoData.insert(
-        schema=AnotherDummySchema,
-        data={"name": "Should be in newdb, new collection"}
-    )
-    
-    data = MongoData.fetch(id_list[0], as_list=True)    
-    print(id_list, data)
-
-    MongoData.set_db_name("db")
-    MongoData.set_collection_name("testcollection")
-
-
-    assert_that(data).contains_entry({"name": "Should be in newdb, new collection"})
-
-
-    # print("\n\n\n\n")
 
 
 
@@ -91,45 +68,7 @@ def test_md_insert_one():
         }
     )
     
-    assert_that(id_list).is_not_none().contains_only(id1) 
-
-
-def test_md_fail_insert_one():
-
-    str_error = MongoData.insert(
-        schema=DummySchema, 
-        collection="testcollection", 
-        data={
-            "_id": id1,
-            # "name": "John Show",
-            "files": ["f1", "f2"],
-            "age": "20",
-            "birthdate": dt.datetime(2021, 9, 29).strftime( '%Y-%m-%d %H:%M:%S' )
-        }
-    )
-    
-    assert_that(str_error).is_instance_of(str)
-
-
-
-def test_md_insert_many():
-    
-    id_list = MongoData.insert(
-        schema=DummySchema, 
-        collection="testcollection", 
-        data=[
-            dict(dummy_data, **{"_id": str(uuid.uuid4())}), 
-            dict(dummy_data, **{"_id": str(uuid.uuid4())}),
-            dict(dummy_data, **{"_id": str(uuid.uuid4())}),
-        ]
-    )
-    
-    print(id_list)
-
-    assert_that(id_list).is_not_none().is_length(3)
-
-
-
+    assert_that(id_list).is_instance_of(list).contains_only(id1)
 
 
 def test_md_fetch_one_with_id():
@@ -139,21 +78,44 @@ def test_md_fetch_one_with_id():
         collection="testcollection"
     )
     
-    print(data_dict)
+    # print("\n\\ test_md_fetch_with_id:: data_dict, id1", data_dict, list(data_dict), id1)
 
     assert_that(data_dict).contains_entry({"_id": id1})
+    assert_that(data_dict['age']).is_instance_of(int)
+    assert_that(data_dict['birthdate']).is_instance_of(dt.datetime)
+
+
+
+def test_md_insert_many():
+    
+    id_list = MongoData.insert(
+        schema=DummySchema, 
+        collection="testcollection", 
+        data=[
+            dummy_data, 
+            dummy_data,
+            dict(dummy_data, **{"_id": str(uuid.uuid4())}),
+        ]
+    )
+    
+    #print("\ntest_md_insert_many:: id_list", id_list)
+
+    assert_that(id_list).is_not_none().is_length(3)
 
 
 
 
 def test_md_fetch_all_with_match():
 
-    response = MongoData.fetch(
+    datagen = MongoData.fetch(
         match = {'name': 'John Show'},
-        collection="testcollection"
+        collection="testcollection",
+        
     )
     
-    print(list(response))
+    # print("\ntest_md_fetch_all_with_match:: datagen", datagen, type(datagen))
+
+    assert_that(len(list(datagen))).is_greater_than_or_equal_to(1)
 
 
 
@@ -166,7 +128,7 @@ def test_md_update_one_with_id():
         new_data   = {'name': 'New John Show'}
     )
     
-    print(response)
+    #print(response)
 
     assert_that(response).is_equal_to(1)
 
@@ -184,7 +146,7 @@ def test_md_update_all_with_match():
         new_data   = {'name': 'John'}
     )
 
-    print(response)
+    #print(response)
 
     assert_that(response).is_greater_than_or_equal_to(1)
 
@@ -198,7 +160,7 @@ def test_md_fetch_with_agreggate():
         as_list = True        
     )
 
-    print(doc_list)
+    # print(doc_list)
 
     assert_that(doc_list).is_instance_of(list).is_not_empty()
 
@@ -211,7 +173,7 @@ def test_md_delete_by_id():
         match      = id1,
     )
 
-    print(deleted_docs_nbr)
+    #print(deleted_docs_nbr)
 
     assert_that(deleted_docs_nbr).is_equal_to(1)
 
@@ -224,7 +186,7 @@ def test_md_delete_with_query():
         match      = {'name': 'John'},
     )
 
-    print(deleted_docs_nbr)
+    #print(deleted_docs_nbr)
 
     assert_that(deleted_docs_nbr).is_greater_than_or_equal_to(1)
 
@@ -232,9 +194,27 @@ def test_md_delete_with_query():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # def test_insert_one_envset_with_chain_assignment():
 
-#     print("Current: ", dm.db_name)
+#     #print("Current: ", dm.db_name)
 
 #     response, status_code = (
 #         dm.db("chaindb") #switch_db_default=False
@@ -248,8 +228,8 @@ def test_md_delete_with_query():
 
 #     #dm.switch_to_default_db()
     
-#     print("New: ", dm.db_name)
-#     print(response)
+#     #print("New: ", dm.db_name)
+#     #print(response)
 
 #     assert_that(status_code).is_in(202)
 #     assert_that(response).contains_entry({'status': 'success'})
@@ -258,7 +238,7 @@ def test_md_delete_with_query():
 
 # def test_insert_one_envset_with_chain_assignment_defaultdb():
 
-#     print("Should be `db`: ", dm.db_name)
+#     #print("Should be `db`: ", dm.db_name)
 
 #     response, status_code = (
 #         dm.schema(DummySchema)
@@ -270,7 +250,7 @@ def test_md_delete_with_query():
 
 #     )
     
-#     print(response)
+#     #print(response)
 
 #     assert_that(status_code).is_in(202)
 #     assert_that(response).contains_entry({'status': 'success'})
@@ -279,7 +259,7 @@ def test_md_delete_with_query():
 
 # def test_insert_one_envset_with_chain_assignment_swichdb():
 
-#     print("Should be `db`: ", dm.db_name)
+#     #print("Should be `db`: ", dm.db_name)
 
 #     response, status_code = (
 #         dm.schema(DummySchema)
@@ -291,7 +271,7 @@ def test_md_delete_with_query():
 
 #     )
     
-#     print(response)
+#     #print(response)
 
 #     assert_that(status_code).is_in(202)
 #     assert_that(response).contains_entry({'status': 'success'})
@@ -309,7 +289,7 @@ def test_md_delete_with_query():
 
 #     response, status_code = dm.insert_one(data)
 
-#     print(response)
+#     #print(response)
 
 #     assert_that(status_code).is_in(202)
 #     assert_that(response).contains_entry({'status': 'success'})
@@ -325,7 +305,7 @@ def test_md_delete_with_query():
 #                                     "name": "added in mycollection with local instance of db newdb" 
 #                                 })
 
-#     print(response)
+#     #print(response)
 
 #     assert_that(status_code).is_in(202)
 #     assert_that(response).contains_entry({'status': 'success'})

@@ -1,11 +1,13 @@
 import os
-import uuid
+from uuid import UUID
 import logging, traceback
 from marshmallow import ValidationError
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.errors import ConnectionFailure
-
+from bson.json_util import dumps, loads
+from bson.objectid import ObjectId
+import json
 
 #Utils
 
@@ -30,27 +32,8 @@ def failsafe(func):
     return func_wrapper
 
 
-def _uuid_to_dict(data):
-    if isinstance(data, dict):
-        if "_id" not in data.keys():
-            return dict(data, **{"_id": str(uuid.uuid4())})
-    return data
-
-def _add_uuid(data, skip_uuid):
-    # Appends uuid4 ids for each dict in list
-    # [{"field": "data", "field2": {"f": "d"}}, etc] 
-    # => [{"_id": uuid4, "field": "data", "field2": {"f": "d"}}, etc] 
-
-    if skip_uuid: return data
-
-    if isinstance(data, list):
-        data = [_uuid_to_dict(d) for d in data]
-        return data
-    return _uuid_to_dict(data)
-
-
 @failsafe
-def validate_data(schema, data, skip_uuid=False):  
+def validate_data(schema, data):  
 
     if isinstance(data, dict):
         data = schema().load(data)
@@ -58,7 +41,22 @@ def validate_data(schema, data, skip_uuid=False):
     if isinstance(data, list):
         data = schema(many=True).load(data)
 
-    return _add_uuid(data, skip_uuid)
+    return data
+
+
+
+def valid_uuid4(uuid_string):
+    try:
+        UUID(uuid_string, version=4)
+        return True
+    except ValueError:
+        return False
+
+
+def parse_oid(oid):
+    if isinstance(oid, ObjectId):
+        return json.loads(dumps(oid))['$oid']
+    return oid
 
 
 class MongoData:
@@ -66,19 +64,6 @@ class MongoData:
         Wrapper on pymongo with added data validation based on marshmallow
         
     """
-
-    @staticmethod
-    def set_collection_name(collection_name):
-        os.environ['MONGO_COLLECTION_NAME'] = collection_name
-
-    @staticmethod
-    def set_db_name(db_name):
-        os.environ['MONGO_DATABASE_NAME'] = db_name
-
-    @staticmethod
-    def set_connection_string(conn_string):
-        os.environ['MONGO_CONNECTION_STRING'] = conn_string
-
 
     @staticmethod
     @failsafe
@@ -124,13 +109,16 @@ class MongoData:
         if isinstance(data, str): return data
 
         if isinstance(data, dict):
-            return [collection.insert_one(data).inserted_id]
+            inserted_id = parse_oid(collection.insert_one(data).inserted_id)
+            return [inserted_id]
     
         if isinstance(data, list):
-            return collection.insert_many(data).inserted_ids
+            inserted_ids = collection.insert_many(data).inserted_ids
+            return [parse_oid(oid) for oid in inserted_ids]
 
-        return data
-    
+        raise Exception(f"Can't interpret validated data: {data}")
+
+
     @staticmethod
     @failsafe
     def fetch(match, collection=None, as_list=False, db_name=None, conn_string=None):
@@ -145,24 +133,33 @@ class MongoData:
             returns a generator of documents found or if as_list=True a list of documents found  
 
         """
-        
-        by_id = False
+
+        oid, uid = None, None
         if isinstance(match, str): 
-            match = {"_id": match}
-            by_id = True
+            if valid_uuid4(match): 
+                match = {"_id": match}
+                oid, uid = False, True
+            else:
+                match = {"_id": ObjectId(match)}
+                oid, uid = True, False
             
+
         collection = MongoData.get_collection(collection, db_name, conn_string)
         if not isinstance(collection, Collection): return collection 
 
         found_docs = collection.find(match)
         
-        if as_list or by_id:
-            data = [r for r in found_docs]
-            if by_id: data = data[0] if len(data) == 1 else data
-            return data
+        if oid or uid:
+            doc = list(found_docs)[0]
+            if oid: doc = dict(doc, **{"_id": parse_oid(doc["_id"])})
+            return doc
         
-        return (r for r in found_docs) # generator
-        
+        if as_list:
+            return [dict(doc, **{"_id": parse_oid(doc["_id"])}) for doc in found_docs]
+            
+        return (dict(doc, **{"_id": parse_oid(doc["_id"])}) for doc in found_docs)    
+            
+
     @staticmethod
     @failsafe
     def update(schema, match, new_data, collection=None, db_name=None, conn_string=None):
@@ -180,12 +177,16 @@ class MongoData:
         """
 
         if isinstance(match, str): 
-            match = {"_id": match}
-        
+            if valid_uuid4(match): 
+                match = {"_id": match}
+            else:
+                match = {"_id": ObjectId(match)}
+            
+
         collection = MongoData.get_collection(collection, db_name, conn_string)
         if not isinstance(collection, Collection): return collection 
 
-        new_data = validate_data(schema, new_data, skip_uuid=True)
+        new_data = validate_data(schema, new_data)
         if isinstance(new_data, str): return new_data
 
 
@@ -248,11 +249,10 @@ class MongoData:
         found_docs = collection.aggregate(pipeline, allowDiskUse=True)
 
         if as_list:
-            return [r for r in found_docs]
+            return [dict(doc, **{"_id": parse_oid(doc["_id"])}) for doc in found_docs]
+            
+        return (dict(doc, **{"_id": parse_oid(doc["_id"])}) for doc in found_docs)    
         
-        return (r for r in found_docs) # generator
-        
-
     
     
     
