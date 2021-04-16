@@ -165,6 +165,20 @@ def test_md_fetch_with_agreggate():
     assert_that(doc_list).is_instance_of(list).is_not_empty()
 
 
+def test_md_fetch_distinct():
+
+    doc_list = MongoData.fetch(
+        match = 'name',
+        collection = "testcollection",
+        as_list = True        
+    )
+
+    # print(doc_list)
+
+    assert_that(doc_list).is_instance_of(list).is_not_empty()
+
+
+
 
 def test_md_delete_by_id():
 

@@ -9,6 +9,7 @@ from bson.json_util import dumps, loads
 from bson.objectid import ObjectId
 import json
 
+
 #Utils
 
 def failsafe(func):
@@ -53,10 +54,39 @@ def valid_uuid4(uuid_string):
         return False
 
 
+def valid_object_id(oid_string):
+    try:
+        ObjectId(oid_string)
+        return True
+    except:
+        return False
+
+
 def parse_oid(oid):
     if isinstance(oid, ObjectId):
         return json.loads(dumps(oid))['$oid']
     return oid
+
+
+def parse_doc(doc):
+    if not isinstance(doc, dict): return doc
+    if not "_id" in doc: return doc
+
+    return dict(doc, **{"_id": parse_oid(doc["_id"])})
+    
+
+def parse_match(match):
+    oid, uid, key = None, None, None
+    if isinstance(match, str): 
+        if valid_uuid4(match): 
+            match = {"_id": match}
+            oid, uid = False, True
+        elif valid_object_id(match):
+            match = {"_id": ObjectId(match)}
+            oid, uid = True, False
+        else:
+            key = match
+    return oid, uid, key, match
 
 
 class MongoData:
@@ -119,6 +149,7 @@ class MongoData:
         raise Exception(f"Can't interpret validated data: {data}")
 
 
+
     @staticmethod
     @failsafe
     def fetch(match, collection=None, as_list=False, db_name=None, conn_string=None):
@@ -133,31 +164,28 @@ class MongoData:
             returns a generator of documents found or if as_list=True a list of documents found  
 
         """
-
-        oid, uid = None, None
-        if isinstance(match, str): 
-            if valid_uuid4(match): 
-                match = {"_id": match}
-                oid, uid = False, True
-            else:
-                match = {"_id": ObjectId(match)}
-                oid, uid = True, False
-            
+        
+        oid, uid, key, match = parse_match(match)
 
         collection = MongoData.get_collection(collection, db_name, conn_string)
         if not isinstance(collection, Collection): return collection 
 
-        found_docs = collection.find(match)
-        
         if oid or uid:
+            found_docs = collection.find(match)
             doc = list(found_docs)[0]
-            if oid: doc = dict(doc, **{"_id": parse_oid(doc["_id"])})
+            if oid: doc = parse_doc(doc)
             return doc
-        
-        if as_list:
-            return [dict(doc, **{"_id": parse_oid(doc["_id"])}) for doc in found_docs]
+
+        if key: 
+            found_docs = collection.distinct(key)
+        else:
+            found_docs = collection.find(match)
             
-        return (dict(doc, **{"_id": parse_oid(doc["_id"])}) for doc in found_docs)    
+
+        if as_list: 
+            return [parse_doc(doc) for doc in found_docs]
+            
+        return (parse_doc(doc) for doc in found_docs)    
             
 
     @staticmethod
@@ -176,13 +204,8 @@ class MongoData:
 
         """
 
-        if isinstance(match, str): 
-            if valid_uuid4(match): 
-                match = {"_id": match}
-            else:
-                match = {"_id": ObjectId(match)}
-            
-
+        _, _, _, match = parse_match(match)
+       
         collection = MongoData.get_collection(collection, db_name, conn_string)
         if not isinstance(collection, Collection): return collection 
 
@@ -214,9 +237,8 @@ class MongoData:
 
         """
 
-        if isinstance(match, str): 
-            match = {"_id": match}
-        
+        _, _, _, match = parse_match(match)
+
         collection = MongoData.get_collection(collection, db_name, conn_string)
         if not isinstance(collection, Collection): return collection 
 
@@ -248,10 +270,9 @@ class MongoData:
 
         found_docs = collection.aggregate(pipeline, allowDiskUse=True)
 
-        if as_list:
-            return [dict(doc, **{"_id": parse_oid(doc["_id"])}) for doc in found_docs]
+        if as_list: return [parse_doc(doc) for doc in found_docs]
             
-        return (dict(doc, **{"_id": parse_oid(doc["_id"])}) for doc in found_docs)    
+        return (parse_doc(doc) for doc in found_docs)    
         
     
     

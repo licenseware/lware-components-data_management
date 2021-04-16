@@ -2,7 +2,6 @@
 
 Wrapper on pymongo with added data validation based on marshmallow.
 
-
 ## Quickstart
 
 Install this package using the following pip command:
@@ -63,12 +62,14 @@ dummy_data = \
 
 
 `MongoData` has the following methods available:
-- MongoData.insert(schema, data, collection=None, db_name=None, conn_string=None)
-- MongoData.update(schema, match, new_data, collection=None, db_name=None, conn_string=None)
-- MongoData.fetch(match, collection=None, as_list=False, db_name=None, conn_string=None)
-- MongoData.aggregate(pipeline, collection=None, as_list=False, db_name=None, conn_string=None)
-- MongoData.delete(match, collection=None, db_name=None, conn_string=None)
-- MongoData.get_collection(collection, db_name, conn_string) (access raw pymongo methods)
+
+- ### m.insert(schema, data, collection=None, db_name=None, conn_string=None)
+- ### m.update(schema, match, new_data, collection=None, db_name=None, conn_string=None)
+- ### m.fetch(match, collection=None, as_list=False, db_name=None, conn_string=None)
+- ### m.aggregate(pipeline, collection=None, as_list=False, db_name=None, conn_string=None)
+- ### m.delete(match, collection=None, db_name=None, conn_string=None)
+- ### m.get_collection(collection, db_name, conn_string) (access raw pymongo methods)
+
 
 **If response from MongoData is of type `str` an error ocurred.** 
 
@@ -130,6 +131,16 @@ You will receive a dictionary which matched `{"_id": id1}`
 
 doc_list = m.fetch(
     match = {'name': 'John Show'},
+    collection = "testcollection",
+    as_list = True
+)
+
+```
+### FETCH DISTINCT
+```py
+
+doc_list = m.fetch(
+    match = 'name', #field name aka key
     collection = "testcollection",
     as_list = True
 )
