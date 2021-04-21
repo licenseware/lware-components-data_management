@@ -20,22 +20,35 @@ from pymongo.collection import Collection
 from bson.json_util import dumps, loads
 from bson.objectid import ObjectId
 import json
-from lware.decorators import failsafe
+# from lware.decorators import failsafe
+# from loguru import logger
+
+# logger.add("failsafe.log", format="{time:YYYY-MM-DD at HH:mm:ss} [{level}] - {message}", backtrace=False, diagnose=False)
+
+def failsafe(func):
+    def func_wrapper(*args, **kwargs):
+        try:
+           return func(*args, **kwargs)
+        except Exception as err:
+#             logger.exception("Failsafe traceback:")
+            return str(err)
+    return func_wrapper
+
 
 
 #Vars
 
-debug = True
+# debug = True
 
-if debug:
-    MONGO_ROOT_USERNAME = 'licensewaredev'
-    MONGO_ROOT_PASSWORD ='license123ware'
-    MONGO_DATABASE_NAME='db'
-    MONGO_HOSTNAME= 'localhost' #for a docker environment use 'mongodb' (service name)
-    MONGO_PORT=27017
+# if debug:
+#     MONGO_ROOT_USERNAME = 'licensewaredev'
+#     MONGO_ROOT_PASSWORD ='license123ware'
+#     MONGO_DATABASE_NAME='db'
+#     MONGO_HOSTNAME= 'localhost' #for a docker environment use 'mongodb' (service name)
+#     MONGO_PORT=27017
 
-    os.environ['MONGO_DATABASE_NAME'] = MONGO_DATABASE_NAME
-    os.environ['MONGO_CONNECTION_STRING'] = f"mongodb://{MONGO_ROOT_USERNAME}:{MONGO_ROOT_PASSWORD}@{MONGO_HOSTNAME}:{MONGO_PORT}"
+#     os.environ['MONGO_DATABASE_NAME'] = MONGO_DATABASE_NAME
+#     os.environ['MONGO_CONNECTION_STRING'] = f"mongodb://{MONGO_ROOT_USERNAME}:{MONGO_ROOT_PASSWORD}@{MONGO_HOSTNAME}:{MONGO_PORT}"
 
 
 
