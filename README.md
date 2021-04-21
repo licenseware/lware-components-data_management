@@ -27,7 +27,7 @@ Import MongoData class and marshmallow for validating input data:
 
 import uuid
 import datetime as dt
-from mongodata import MongoData as m
+import mongodata as m
 from marshmallow import Schema, fields
 
 
