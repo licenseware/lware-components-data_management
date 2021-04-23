@@ -36,7 +36,7 @@ def failsafe(f):
         Prevents a function to raise an exception and break the app.
         Returns a string with the exception and saves the traceback in failsafe.log
     """
-    @wraps(f)
+    #@wraps(f)
     def wrapper(*args, **kwargs):
         try:
            return f(*args, **kwargs)
