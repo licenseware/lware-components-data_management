@@ -1,39 +1,35 @@
 """
 
-Usage:
+Abstraction and validation of inserted data in mongodb
 
-import mongodata as m
 
-m.insert(schema, data, collection="myCollection")
+import licenseware.mongodata as m
+or
+from licenseware import mongodata as m
+
+Available functions:
+- get_collection
+- insert
+- fetch
+- update
+- delete
+- aggregate
 
 Needs the following environment variables:
 - MONGO_DATABASE_NAME
 - MONGO_CONNECTION_STRING
+- MONGO_COLLECTION_NAME (optional)
 
 """
 
 import os
 from uuid import UUID
-import logging, traceback
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from bson.json_util import dumps, loads
 from bson.objectid import ObjectId
 import json
-# from lware.decorators import failsafe
-# from loguru import logger
-
-# logger.add("failsafe.log", format="{time:YYYY-MM-DD at HH:mm:ss} [{level}] - {message}", backtrace=False, diagnose=False)
-
-def failsafe(func):
-    def func_wrapper(*args, **kwargs):
-        try:
-           return func(*args, **kwargs)
-        except Exception as err:
-#             logger.exception("Failsafe traceback:")
-            return str(err)
-    return func_wrapper
-
+from .decorators import failsafe
 
 
 #Vars
@@ -50,11 +46,6 @@ def failsafe(func):
 #     os.environ['MONGO_DATABASE_NAME'] = MONGO_DATABASE_NAME
 #     os.environ['MONGO_CONNECTION_STRING'] = f"mongodb://{MONGO_ROOT_USERNAME}:{MONGO_ROOT_PASSWORD}@{MONGO_HOSTNAME}:{MONGO_PORT}"
 
-
-
-default_db = os.getenv("MONGO_DB_NAME") or os.getenv("MONGO_DATABASE_NAME") or "db"
-default_collection = os.getenv("MONGO_COLLECTION_NAME") or "data"
-mongo_connection = MongoClient(os.getenv("MONGO_CONNECTION_STRING"))
 
 
 #Utils
@@ -74,9 +65,9 @@ def validate_data(schema, data):
     return data
 
 
-def valid_uuid4(uuid_string):
+def valid_uuid(uuid_string):
     try:
-        UUID(uuid_string, version=4)
+        UUID(uuid_string)
         return True
     except ValueError:
         return False
@@ -103,7 +94,7 @@ def _parse_doc(doc):
 def _parse_match(match):
     oid, uid, key = None, None, None
     if isinstance(match, str): 
-        if valid_uuid4(match): 
+        if valid_uuid(match): 
             match = {"_id": match}
             oid, uid = False, True
         elif valid_object_id(match):
@@ -114,12 +105,49 @@ def _parse_match(match):
     return oid, uid, key, match
 
 
+
+def _update_query(dict_):
+    """ 
+        Force append to mongo document 
+    """
+    
+    dict_.pop("_id", None)
+    
+    q = {'$set': {}, '$addToSet': {}}
+    for k in dict_:
+        
+        if isinstance(dict_[k], str):
+            q['$set'].update({k:dict_[k]})
+            
+        if isinstance(dict_[k], dict):
+            for key in dict_[k]:
+                key_ = ".".join([k, key]) # files.status
+                q['$set'].update({key_:dict_[k][key]})
+                
+        if isinstance(dict_[k], list): 
+            q['$addToSet'].update({k:{}})
+            q['$addToSet'][k].update({ "$each": dict_[k]})
+     
+    if not q['$addToSet']: del q['$addToSet'] 
+    if not q['$set']: del q['$set'] 
+
+    return q or dict_
+
+
+
 #Mongo
 
+default_db = os.getenv("MONGO_DB_NAME") or os.getenv("MONGO_DATABASE_NAME") or "db"
+default_collection = os.getenv("MONGO_COLLECTION_NAME") or "data"
+mongo_connection = MongoClient(os.getenv("MONGO_CONNECTION_STRING"))
+
+
 @failsafe
-def get_collection(collection, db_name):
+def get_collection(collection, db_name=None):
     """
         Gets the collection on which mongo CRUD operations can be performed
+
+        If something fails will return a string with the error message.
     """
     
     collection = collection or default_collection
@@ -127,7 +155,7 @@ def get_collection(collection, db_name):
 
     # print(db_name, collection, os.getenv("MONGO_CONNECTION_STRING"), mongo_connection)
 
-    if not db_name and collection:
+    if not all([db_name, collection, mongo_connection]) :
         raise Exception("Can't create connection to mongo.")
 
     collection = mongo_connection[db_name][collection]
@@ -135,21 +163,21 @@ def get_collection(collection, db_name):
     return collection
 
 
-
 @failsafe
 def insert(schema, data, collection=None, db_name=None):
     """
         Insert validated documents in database.
 
-        :collection - collection name
+        :schema     - Marshmallow schema class used to validate `data`
         :data       - data in dict or list of dicts format
-        :schema     - Marshmallow schema class 
+        :collection - collection name, schema name will be taken if not present
         :db_name    - specify other db if needed, by default is MONGO_DATABASE_NAME from .env
 
         returns a list of ids inserted in the database in the order they were added
+        If something fails will return a string with the error message.
     """
 
-    collection = get_collection(collection, db_name)
+    collection = get_collection(collection or schema.__name__, db_name)
     if not isinstance(collection, Collection): 
         return collection 
 
@@ -170,16 +198,19 @@ def insert(schema, data, collection=None, db_name=None):
 
 
 @failsafe
-def fetch(match, collection=None, as_list=True, db_name=None):
+def fetch(match, collection, as_list=True, db_name=None):
     """
         Get data from mongo, based on match dict or string id.
         
+        :match      - _id as string (will return a dict)
+                    - mongo dict filter (will return a list of results)
+                    - field_name as string (will return distinct values for that field)
+
         :collection - collection name
-        :match      - id/field as string, mongo filter query
         :as_list    - set as_list to false to get a generator
         :db_name    - specify other db if needed by default is MONGO_DATABASE_NAME from .env
-
-        returns a generator of documents found or if as_list=True a list of documents found  
+        
+        If something fails will return a string with the error message.
 
     """
     
@@ -215,24 +246,27 @@ def update(schema, match, new_data, collection=None, db_name=None):
         :schema      - Marshmallow schema class
         :match       - id as string or dict filter query
         :new_data    - data dict which needs to be updated
-        :collection  - collection name
+        :collection  - collection name, schema name will be used of collection name not specified
         :db_name     - specify other db if needed by default is MONGO_DATABASE_NAME from .env
         
         returns number of modified documents
+
+        If something fails will return a string with the error message.
 
     """
 
     _, _, _, match = _parse_match(match)
     
-    collection = get_collection(collection, db_name)
+    collection = get_collection(collection or schema.__name__, db_name)
     if not isinstance(collection, Collection): return collection 
 
     new_data = validate_data(schema, new_data)
     if isinstance(new_data, str): return new_data
 
+
     updated_docs_nbr = collection.update_many(
         filter={"_id": match["_id"]} if "_id" in match else match,
-        update={"$set": new_data},
+        update=_update_query(new_data),
         upsert=True
     ).modified_count
 
@@ -240,17 +274,21 @@ def update(schema, match, new_data, collection=None, db_name=None):
 
 
 
+
 @failsafe
-def delete(match, collection=None, db_name=None):
+def delete(match, collection, db_name=None):
     """
 
         Delete documents based on match query.
 
+        :match       - id as string or dict filter query, 
+                     - if match == collection: will delete collection           
         :collection  - collection name
-        :match       - id as string or dict filter query, if match == collection: will delete collection
         :db_name     - specify other db if needed by default is MONGO_DATABASE_NAME from .env
         
         returns number of deleted documents
+        
+        If something fails will return a string with the error message.
 
     """
     _, _, key, match = _parse_match(match)
@@ -271,17 +309,17 @@ def delete(match, collection=None, db_name=None):
 
 
 @failsafe
-def aggregate(pipeline, collection=None, as_list=True, db_name=None):
+def aggregate(pipeline, collection, as_list=True, db_name=None):
     """
         Fetch documents based on pipeline queries.
         https://docs.mongodb.com/manual/reference/operator/aggregation-pipeline/
         
-        :collection - collection name
         :pipeline   - list of query stages
+        :collection - collection name
         :as_list    - set as_list to false to get a generator
         :db_name    - specify other db if needed by default is MONGO_DATABASE_NAME from .env
-        
-        returns a generator of documents found or a list if as_list=True
+                
+        If something fails will return a string with the error message.
 
     """
 
