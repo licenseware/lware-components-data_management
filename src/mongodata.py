@@ -29,7 +29,22 @@ from pymongo.collection import Collection
 from bson.json_util import dumps, loads
 from bson.objectid import ObjectId
 import json
-from .decorators import failsafe
+
+
+def failsafe(f):
+    """
+        Prevents a function to raise an exception and break the app.
+        Returns a string with the exception and saves the traceback in failsafe.log
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+           return f(*args, **kwargs)
+        except Exception as err:
+            logging.warning(str(err))
+            return "[ERROR] - " + str(err)
+
+    return wrapper
 
 
 #Vars
