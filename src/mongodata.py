@@ -26,41 +26,10 @@ import os
 from uuid import UUID
 from pymongo import MongoClient
 from pymongo.collection import Collection
-from bson.json_util import dumps, loads
+from bson.json_util import dumps
 from bson.objectid import ObjectId
 import json
-
-
-def failsafe(f):
-    """
-        Prevents a function to raise an exception and break the app.
-        Returns a string with the exception and saves the traceback in failsafe.log
-    """
-    #@wraps(f)
-    def wrapper(*args, **kwargs):
-        try:
-           return f(*args, **kwargs)
-        except Exception as err:
-            logging.warning(str(err))
-            return "[ERROR] - " + str(err)
-
-    return wrapper
-
-
-#Vars
-
-# debug = True
-
-# if debug:
-#     MONGO_ROOT_USERNAME = 'licensewaredev'
-#     MONGO_ROOT_PASSWORD ='license123ware'
-#     MONGO_DATABASE_NAME='db'
-#     MONGO_HOSTNAME= 'localhost' #for a docker environment use 'mongodb' (service name)
-#     MONGO_PORT=27017
-
-#     os.environ['MONGO_DATABASE_NAME'] = MONGO_DATABASE_NAME
-#     os.environ['MONGO_CONNECTION_STRING'] = f"mongodb://{MONGO_ROOT_USERNAME}:{MONGO_ROOT_PASSWORD}@{MONGO_HOSTNAME}:{MONGO_PORT}"
-
+from .decorators import failsafe
 
 
 #Utils
@@ -104,7 +73,6 @@ def _parse_doc(doc):
     if not "_id" in doc: return doc
 
     return dict(doc, **{"_id": _parse_oid(doc["_id"])})
-    
 
 def _parse_match(match):
     oid, uid, key = None, None, None
@@ -121,7 +89,8 @@ def _parse_match(match):
 
 
 
-def _update_query(dict_):
+
+def _append_query(dict_):
     """ 
         Force append to mongo document 
     """
@@ -146,6 +115,8 @@ def _update_query(dict_):
     if not q['$addToSet']: del q['$addToSet'] 
     if not q['$set']: del q['$set'] 
 
+    # print(q)
+
     return q or dict_
 
 
@@ -153,7 +124,7 @@ def _update_query(dict_):
 #Mongo
 
 default_db = os.getenv("MONGO_DB_NAME") or os.getenv("MONGO_DATABASE_NAME") or "db"
-default_collection = os.getenv("MONGO_COLLECTION_NAME") or "data"
+default_collection = os.getenv("MONGO_COLLECTION_NAME") or "Data"
 mongo_connection = MongoClient(os.getenv("MONGO_CONNECTION_STRING"))
 
 
@@ -179,20 +150,20 @@ def get_collection(collection, db_name=None):
 
 
 @failsafe
-def insert(schema, data, collection=None, db_name=None):
+def insert(schema, collection, data, db_name=None):
     """
         Insert validated documents in database.
 
         :schema     - Marshmallow schema class used to validate `data`
-        :data       - data in dict or list of dicts format
         :collection - collection name, schema name will be taken if not present
+        :data       - data in dict or list of dicts format
         :db_name    - specify other db if needed, by default is MONGO_DATABASE_NAME from .env
 
         returns a list of ids inserted in the database in the order they were added
         If something fails will return a string with the error message.
     """
 
-    collection = get_collection(collection or schema.__name__, db_name)
+    collection = get_collection(collection, db_name)
     if not isinstance(collection, Collection): 
         return collection 
 
@@ -236,7 +207,8 @@ def fetch(match, collection, as_list=True, db_name=None):
 
     if oid or uid:
         found_docs = collection.find(match)
-        doc = list(found_docs)[0]
+        doc = []
+        if found_docs: doc = list(found_docs)[0]
         if oid: doc = _parse_doc(doc)
         return doc
 
@@ -254,14 +226,15 @@ def fetch(match, collection, as_list=True, db_name=None):
 
 
 @failsafe
-def update(schema, match, new_data, collection=None, db_name=None):
+def update(schema, match, new_data, collection, append=False, db_name=None):
     """
         Update documents based on match query.
         
         :schema      - Marshmallow schema class
         :match       - id as string or dict filter query
         :new_data    - data dict which needs to be updated
-        :collection  - collection name, schema name will be used of collection name not specified
+        :collection  - collection name
+        :append      - if true will APPEND new data to existing fields, if false will SET new data to fields  
         :db_name     - specify other db if needed by default is MONGO_DATABASE_NAME from .env
         
         returns number of modified documents
@@ -272,16 +245,16 @@ def update(schema, match, new_data, collection=None, db_name=None):
 
     _, _, _, match = _parse_match(match)
     
-    collection = get_collection(collection or schema.__name__, db_name)
+    collection = get_collection(collection, db_name)
     if not isinstance(collection, Collection): return collection 
 
+    
     new_data = validate_data(schema, new_data)
     if isinstance(new_data, str): return new_data
 
-
     updated_docs_nbr = collection.update_many(
         filter={"_id": match["_id"]} if "_id" in match else match,
-        update=_update_query(new_data),
+        update=_append_query(new_data) if append else {"$set": new_data},
         upsert=True
     ).modified_count
 
